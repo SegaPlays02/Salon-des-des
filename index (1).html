@@ -1,0 +1,2971 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Le Salon des Dés</title>
+
+<!-- PWA: manifest, colores de tema y configuración para iOS -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4a0e0e">
+<meta name="description" content="Juego de dados estilo casino Art Déco con monedas virtuales sin valor real. Para mayores de 18 años.">
+
+<!-- iOS: Apple no soporta manifest.json al 100%, hay que repetir aquí -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Salon des Dés">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Bodoni+Moda:ital,wght@0,400;0,700;0,900;1,400&family=Cinzel:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #0d0604;
+    --bg-velvet: #1a0808;
+    --burgundy: #4a0e0e;
+    --burgundy-light: #6b1818;
+    --gold: #d4a14a;
+    --gold-bright: #f5cf6b;
+    --gold-deep: #8a6420;
+    --cream: #f4ead5;
+    --ivory: #ebe0c5;
+    --shadow: rgba(0,0,0,0.6);
+    --green-win: #4ade80;
+    --red-loss: #ef4444;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    min-height: 100vh;
+    background: radial-gradient(ellipse at 50% 0%, var(--burgundy) 0%, var(--bg-velvet) 45%, var(--bg-deep) 100%);
+    color: var(--cream);
+    font-family: 'Cormorant Garamond', serif;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+    opacity: 0.08; mix-blend-mode: overlay; z-index: 1;
+  }
+
+  body::after {
+    content: '';
+    position: fixed; inset: 0; pointer-events: none;
+    background-image:
+      repeating-linear-gradient(45deg, transparent 0, transparent 60px, rgba(212,161,74,0.025) 60px, rgba(212,161,74,0.025) 61px),
+      repeating-linear-gradient(-45deg, transparent 0, transparent 60px, rgba(212,161,74,0.025) 60px, rgba(212,161,74,0.025) 61px);
+    z-index: 0;
+  }
+
+  /* Pantallas */
+  .screen {
+    display: none;
+    position: relative;
+    z-index: 2;
+    min-height: 100vh;
+  }
+  .screen.active { display: block; }
+
+  /* ============= PANTALLA DE INICIO ============= */
+  /* IMPORTANTE: usar #id.active (no #id solo) para no ganarle especificidad
+     a la regla .screen { display: none; } cuando NO está activa */
+  #home-screen.active {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 40px 24px;
+    min-height: 100vh;
+    text-align: center;
+  }
+
+  .home-ornament {
+    color: var(--gold);
+    font-size: 28px;
+    letter-spacing: 18px;
+    margin-bottom: 20px;
+    opacity: 0.85;
+    animation: fadeInDown 1s ease 0.2s both;
+  }
+
+  .home-title {
+    font-family: 'Cinzel', serif;
+    font-weight: 900;
+    font-size: clamp(2.5rem, 8vw, 5rem);
+    letter-spacing: 0.12em;
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 50%, var(--gold-deep) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 4px 40px rgba(212,161,74,0.4);
+    margin-bottom: 12px;
+    animation: fadeInUp 1.2s ease 0.4s both;
+    line-height: 1.1;
+  }
+
+  .home-subtitle {
+    font-family: 'Bodoni Moda', serif;
+    font-style: italic;
+    font-size: clamp(1rem, 2vw, 1.3rem);
+    color: var(--ivory);
+    opacity: 0.7;
+    letter-spacing: 0.05em;
+    margin-bottom: 50px;
+    max-width: 600px;
+    animation: fadeInUp 1.2s ease 0.6s both;
+  }
+
+  /* Dados decorativos giratorios en la pantalla de inicio */
+  .home-dice-decoration {
+    display: flex;
+    gap: 30px;
+    margin: 30px 0 50px;
+    animation: fadeIn 1.5s ease 0.8s both;
+  }
+
+  .home-die {
+    width: 60px; height: 60px;
+    background: linear-gradient(145deg, var(--ivory) 0%, #d4c8a8 100%);
+    border-radius: 10px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.5), inset 0 -3px 6px rgba(0,0,0,0.15);
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: 1fr 1fr 1fr;
+    padding: 10px;
+    animation: floatDie 3s ease-in-out infinite;
+  }
+  .home-die:nth-child(1) { animation-delay: 0s; }
+  .home-die:nth-child(2) { animation-delay: 0.3s; }
+  .home-die:nth-child(3) { animation-delay: 0.6s; }
+  .home-die:nth-child(4) {
+    animation-delay: 0.9s;
+    background: linear-gradient(145deg, #f5cf6b 0%, #8a6420 100%);
+  }
+  .home-die:nth-child(4) .pip { background: #2a1a05; }
+
+  @keyframes floatDie {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-15px) rotate(8deg); }
+  }
+
+  .home-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+    max-width: 320px;
+    animation: fadeInUp 1.2s ease 1s both;
+  }
+
+  .home-btn {
+    font-family: 'Cinzel', serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    padding: 18px 32px;
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 50%, var(--gold-deep) 100%);
+    color: var(--bg-deep);
+    border: none;
+    cursor: pointer;
+    border-radius: 2px;
+    box-shadow: 0 4px 0 var(--gold-deep), 0 8px 25px rgba(212,161,74,0.4);
+    transition: all 0.15s;
+    width: 100%;
+  }
+  .home-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 0 var(--gold-deep), 0 12px 30px rgba(212,161,74,0.5);
+  }
+  .home-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--gold-deep); }
+
+  .home-btn.secondary {
+    background: transparent;
+    color: var(--gold);
+    border: 1px solid var(--gold-deep);
+    box-shadow: none;
+  }
+  .home-btn.secondary:hover {
+    border-color: var(--gold);
+    background: rgba(212,161,74,0.1);
+    box-shadow: none;
+  }
+
+  /* User badge en la esquina */
+  .user-badge {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 18px;
+    background: linear-gradient(180deg, rgba(74,14,14,0.5), rgba(26,8,8,0.5));
+    border: 1px solid var(--gold-deep);
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.2s;
+    animation: fadeIn 1s ease 0.3s both;
+  }
+  .user-badge:hover { border-color: var(--gold); transform: translateY(-1px); }
+
+  .user-avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, var(--gold-bright), var(--gold-deep));
+    color: var(--bg-deep);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Cinzel', serif;
+    font-weight: 900;
+    font-size: 0.9rem;
+  }
+
+  .user-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.1;
+  }
+  .user-name {
+    font-family: 'Bodoni Moda', serif;
+    font-size: 0.9rem;
+    color: var(--ivory);
+  }
+  .user-balance {
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    color: var(--gold);
+  }
+
+  /* ============= MODALES ============= */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(8px);
+    z-index: 200;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.show { display: flex; animation: fadeIn 0.3s ease; }
+
+  .modal {
+    background: linear-gradient(180deg, #1a0a0a 0%, #0d0505 100%);
+    border: 2px solid var(--gold-deep);
+    border-radius: 4px;
+    padding: 40px 36px 32px;
+    max-width: 540px;
+    width: 100%;
+    max-height: 88vh;
+    overflow-y: auto;
+    position: relative;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+    animation: modalIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes modalIn {
+    0% { transform: scale(0.85) translateY(20px); opacity: 0; }
+    100% { transform: scale(1) translateY(0); opacity: 1; }
+  }
+
+  /* Esquinas decorativas: usamos position:sticky para que las inferiores
+     se queden ancladas al borde visible del modal aunque haga scroll, no
+     en mitad del contenido */
+  .modal-corner {
+    position: absolute;
+    width: 26px;
+    height: 26px;
+    border: 2px solid var(--gold);
+    pointer-events: none;
+  }
+  .modal-corner.tl { top: 8px; left: 8px; border-right: none; border-bottom: none; }
+  .modal-corner.tr { top: 8px; right: 8px; border-left: none; border-bottom: none; }
+  /* Las inferiores se ocultan para evitar que aparezcan en mitad del contenido
+     cuando el modal hace scroll. El borde dorado del modal ya marca el límite. */
+  .modal-corner.bl,
+  .modal-corner.br { display: none; }
+
+  .modal-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 32px;
+    height: 32px;
+    background: none;
+    border: 1px solid var(--gold-deep);
+    color: var(--gold);
+    font-size: 1.2rem;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: all 0.2s;
+    z-index: 1;
+  }
+  .modal-close:hover { background: rgba(212,161,74,0.1); border-color: var(--gold); }
+
+  .modal h2 {
+    font-family: 'Cinzel', serif;
+    font-weight: 700;
+    font-size: 1.6rem;
+    letter-spacing: 0.15em;
+    text-align: center;
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold-deep));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+
+  .modal h3 {
+    font-family: 'Cinzel', serif;
+    color: var(--gold);
+    font-size: 0.85rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin: 24px 0 14px;
+    text-align: center;
+  }
+
+  .modal-divider {
+    text-align: center;
+    color: var(--gold);
+    margin: 6px 0 24px;
+    letter-spacing: 8px;
+    opacity: 0.6;
+  }
+
+  .modal p {
+    font-size: 1.05rem;
+    line-height: 1.6;
+    margin-bottom: 12px;
+    color: var(--ivory);
+  }
+
+  /* Pay rows en modales */
+  .pay-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 10px 0;
+    border-bottom: 1px dashed rgba(212,161,74,0.2);
+    font-size: 1.05rem;
+    gap: 12px;
+  }
+  .pay-row:last-child { border-bottom: none; }
+  .pay-name { font-family: 'Bodoni Moda', serif; font-weight: 700; color: var(--ivory); white-space: nowrap; }
+  .pay-name.legendary {
+    background: linear-gradient(90deg, var(--gold-bright), var(--gold-deep));
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .pay-desc { font-style: italic; color: var(--ivory); opacity: 0.65; font-size: 0.92rem; flex: 1; }
+  .pay-mult { font-family: 'Cinzel', serif; font-weight: 700; color: var(--gold); white-space: nowrap; font-size: 0.85rem; }
+
+  /* ============= PERFIL ============= */
+  .profile-header {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+
+  .profile-avatar-big {
+    width: 80px; height: 80px;
+    margin: 0 auto 12px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, var(--gold-bright), var(--gold-deep));
+    color: var(--bg-deep);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Cinzel', serif;
+    font-weight: 900;
+    font-size: 2rem;
+    box-shadow: 0 0 30px rgba(245,207,107,0.3);
+  }
+
+  .profile-name {
+    font-family: 'Bodoni Moda', serif;
+    font-weight: 700;
+    font-size: 1.4rem;
+    color: var(--ivory);
+  }
+
+  .profile-since {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: var(--gold);
+    opacity: 0.7;
+    font-size: 0.95rem;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 20px 0;
+  }
+
+  .stat-card {
+    padding: 14px;
+    background: rgba(74,14,14,0.3);
+    border: 1px solid var(--gold-deep);
+    text-align: center;
+    border-radius: 2px;
+  }
+
+  .stat-card-label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .stat-card-value {
+    font-family: 'Bodoni Moda', serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--ivory);
+  }
+  .stat-card-value.positive { color: var(--green-win); }
+  .stat-card-value.negative { color: #ef6464; }
+
+  /* Historial */
+  .history-list {
+    max-height: 200px;
+    overflow-y: auto;
+    margin-top: 8px;
+    border: 1px solid rgba(212,161,74,0.15);
+    border-radius: 2px;
+  }
+
+  .history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 14px;
+    border-bottom: 1px solid rgba(212,161,74,0.1);
+    font-size: 0.9rem;
+  }
+  .history-item:last-child { border-bottom: none; }
+  .history-name {
+    font-family: 'Bodoni Moda', serif;
+    color: var(--ivory);
+    font-style: italic;
+  }
+  .history-amount {
+    font-family: 'Cinzel', serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+  }
+  .history-amount.win { color: var(--green-win); }
+  .history-amount.loss { color: #ef6464; }
+  .history-empty {
+    text-align: center;
+    padding: 20px;
+    color: var(--ivory);
+    opacity: 0.5;
+    font-style: italic;
+  }
+
+  /* Form login/registro */
+  .form-group { margin-bottom: 16px; }
+  .form-label {
+    display: block;
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    color: var(--gold);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+  .form-input {
+    width: 100%;
+    padding: 12px 14px;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--gold-deep);
+    color: var(--ivory);
+    font-family: 'Bodoni Moda', serif;
+    font-size: 1.05rem;
+    border-radius: 2px;
+    transition: border-color 0.2s;
+  }
+  .form-input:focus { outline: none; border-color: var(--gold); }
+
+  /* Tienda */
+  .shop-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin: 16px 0 8px;
+  }
+  .shop-pack {
+    padding: 18px 14px;
+    background: linear-gradient(180deg, rgba(74,14,14,0.4), rgba(26,8,8,0.4));
+    border: 1px solid var(--gold-deep);
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    border-radius: 2px;
+  }
+  .shop-pack:hover {
+    border-color: var(--gold);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(212,161,74,0.2);
+  }
+  .shop-pack.featured {
+    border-color: var(--gold);
+    background: linear-gradient(180deg, rgba(212,161,74,0.15), rgba(74,14,14,0.4));
+  }
+  .shop-pack.featured::before {
+    content: 'POPULAR';
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--gold);
+    color: var(--bg-deep);
+    font-family: 'Cinzel', serif;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    padding: 2px 10px;
+    border-radius: 50px;
+  }
+
+  .shop-amount {
+    font-family: 'Cinzel', serif;
+    font-weight: 900;
+    font-size: 1.6rem;
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold-deep));
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .shop-bonus {
+    font-family: 'Bodoni Moda', serif;
+    font-style: italic;
+    font-size: 0.8rem;
+    color: var(--green-win);
+    min-height: 1em;
+  }
+  .shop-price {
+    font-family: 'Bodoni Moda', serif;
+    font-weight: 700;
+    color: var(--ivory);
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(212,161,74,0.2);
+  }
+
+  .demo-notice {
+    text-align: center;
+    font-style: italic;
+    font-size: 0.85rem;
+    color: var(--ivory);
+    opacity: 0.5;
+    margin-top: 12px;
+  }
+
+  /* ============= JUEGO ============= */
+  #game-screen .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 24px 60px;
+  }
+
+  .game-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .back-btn {
+    background: none;
+    border: 1px solid var(--gold-deep);
+    color: var(--gold);
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    padding: 8px 18px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s;
+  }
+  .back-btn:hover { background: rgba(212,161,74,0.1); border-color: var(--gold); }
+
+  .game-title {
+    font-family: 'Cinzel', serif;
+    font-weight: 900;
+    font-size: clamp(1.4rem, 4vw, 2rem);
+    letter-spacing: 0.12em;
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 50%, var(--gold-deep) 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+
+  .stats {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin: 16px 0 30px;
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    text-align: center;
+    min-width: 140px;
+    padding: 14px 24px;
+    background: linear-gradient(180deg, rgba(74,14,14,0.5), rgba(26,8,8,0.5));
+    border: 1px solid var(--gold-deep);
+    border-radius: 2px;
+    position: relative;
+  }
+  .stat::before, .stat::after {
+    content: '';
+    position: absolute;
+    width: 14px; height: 14px;
+    border: 1px solid var(--gold);
+  }
+  .stat::before { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+  .stat::after { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+
+  .stat-label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.25em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .stat-value {
+    font-family: 'Bodoni Moda', serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--ivory);
+    transition: color 0.3s;
+  }
+
+  .stat-value.flash { animation: flash 0.6s ease; }
+  @keyframes flash {
+    0%, 100% { color: var(--ivory); transform: scale(1); }
+    50% { color: var(--gold-bright); transform: scale(1.15); }
+  }
+
+  /* Mesa de juego */
+  .table {
+    background:
+      radial-gradient(ellipse at center, rgba(74,14,14,0.4) 0%, transparent 70%),
+      linear-gradient(180deg, #1a0a0a 0%, #0d0505 100%);
+    border: 2px solid var(--gold-deep);
+    border-radius: 4px;
+    padding: 50px 30px 40px;
+    margin: 20px 0;
+    position: relative;
+    box-shadow: inset 0 0 80px rgba(0,0,0,0.6), 0 20px 60px rgba(0,0,0,0.5);
+  }
+
+  .corner {
+    position: absolute;
+    width: 38px; height: 38px;
+    border: 2px solid var(--gold);
+  }
+  .corner.tl { top: 12px; left: 12px; border-right: none; border-bottom: none; }
+  .corner.tr { top: 12px; right: 12px; border-left: none; border-bottom: none; }
+  .corner.bl { bottom: 12px; left: 12px; border-right: none; border-top: none; }
+  .corner.br { bottom: 12px; right: 12px; border-left: none; border-top: none; }
+  .corner::before {
+    content: '◆';
+    position: absolute;
+    color: var(--gold);
+    font-size: 9px;
+  }
+  .corner.tl::before { bottom: -7px; right: -7px; }
+  .corner.tr::before { bottom: -7px; left: -7px; }
+  .corner.bl::before { top: -7px; right: -7px; }
+  .corner.br::before { top: -7px; left: -7px; }
+
+  .dice-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    min-height: 90px;
+    perspective: 1000px;
+    perspective-origin: center 40%;
+  }
+
+  .dice-divider {
+    width: 1px;
+    height: 60px;
+    background: linear-gradient(180deg, transparent, var(--gold), transparent);
+    margin: 0 8px;
+  }
+
+  /* ===== DICE 3D ===== */
+  .die-wrap {
+    width: 78px; height: 78px;
+    position: relative;
+    perspective: 1000px;
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.25s ease;
+  }
+
+  .die-wrap:hover:not(.disabled) { transform: translateY(-4px); }
+  .die-wrap.held { transform: translateY(-8px); }
+
+  .hold-label {
+    position: absolute;
+    bottom: -22px; left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Cinzel', serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    color: var(--gold-bright);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .die-wrap.held .hold-label { opacity: 1; }
+
+  .die {
+    width: 78px; height: 78px;
+    position: relative;
+    transform-style: preserve-3d;
+    transform: rotateX(0deg) rotateY(0deg);
+    transition: transform 0.6s cubic-bezier(0.4, 1.4, 0.5, 1);
+  }
+  .die.rolling { pointer-events: none; will-change: transform; }
+
+  .face {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(145deg, var(--ivory) 0%, #d4c8a8 100%);
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: 1fr 1fr 1fr;
+    padding: 12px;
+    box-shadow: inset 0 -3px 8px rgba(0,0,0,0.18), inset 0 2px 4px rgba(255,255,255,0.55);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    border-radius: 4px;
+  }
+
+  .face.f1 { transform: rotateY(  0deg) translateZ(39px); }
+  .face.f6 { transform: rotateY(180deg) translateZ(39px); }
+  .face.f3 { transform: rotateY( 90deg) translateZ(39px); }
+  .face.f4 { transform: rotateY(-90deg) translateZ(39px); }
+  .face.f2 { transform: rotateX( 90deg) translateZ(39px); }
+  .face.f5 { transform: rotateX(-90deg) translateZ(39px); }
+
+  .die-wrap::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 12px;
+    pointer-events: none;
+    box-shadow: inset 0 0 0 1px rgba(212,161,74,0.15);
+    z-index: 2;
+  }
+
+  .die-wrap::before {
+    content: '';
+    position: absolute;
+    bottom: -10px; left: 50%;
+    transform: translateX(-50%);
+    width: 70%; height: 12px;
+    background: radial-gradient(ellipse, rgba(0,0,0,0.5) 0%, transparent 70%);
+    filter: blur(3px);
+    z-index: -1;
+    transition: all 0.3s;
+  }
+  .die-wrap.airborne::before {
+    width: 50%; opacity: 0.3; filter: blur(8px);
+  }
+
+  .die-wrap.golden .face {
+    background: linear-gradient(145deg, #f5cf6b 0%, #8a6420 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Bodoni Moda', serif;
+    font-weight: 900;
+    font-size: 2rem;
+    color: #2a1a05;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+  }
+  .die-wrap.golden { filter: drop-shadow(0 0 14px rgba(245,207,107,0.25)); }
+
+  .die-wrap.held:not(.golden) .face {
+    background: linear-gradient(145deg, #f5cf6b 0%, #b08530 100%);
+  }
+  .die-wrap.held { filter: drop-shadow(0 0 12px rgba(245,207,107,0.3)); }
+
+  .die-wrap.airborne {
+    animation: jump 1.1s cubic-bezier(0.34, 1.4, 0.5, 1);
+  }
+  @keyframes jump {
+    0%   { transform: translateY(0) translateX(0); }
+    20%  { transform: translateY(-90px) translateX(var(--drift, -10px)); }
+    45%  { transform: translateY(-120px) translateX(calc(var(--drift, -10px) * -0.5)); }
+    70%  { transform: translateY(-50px) translateX(var(--drift, -10px)); }
+    88%  { transform: translateY(-4px); }
+    94%  { transform: translateY(0) scaleY(0.88) scaleX(1.08); }
+    100% { transform: translateY(0) scale(1); }
+  }
+
+  .die.spinning {
+    transition: none;
+    animation: spin 0.85s linear;
+  }
+  @keyframes spin {
+    0%   { transform: rotateX(0) rotateY(0) rotateZ(0); }
+    100% { transform: rotateX(var(--rx, 1080deg)) rotateY(var(--ry, 720deg)) rotateZ(var(--rz, 360deg)); }
+  }
+
+  .pip {
+    width: 11px; height: 11px;
+    background: var(--bg-deep);
+    border-radius: 50%;
+    align-self: center;
+    justify-self: center;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
+  }
+
+  .pip.p1 { grid-area: 1 / 1; }
+  .pip.p2 { grid-area: 1 / 3; }
+  .pip.p3 { grid-area: 2 / 2; }
+  .pip.p4 { grid-area: 3 / 1; }
+  .pip.p5 { grid-area: 3 / 3; }
+  .pip.p8 { grid-area: 2 / 1; }
+  .pip.p9 { grid-area: 2 / 3; }
+
+  .multiplier-label {
+    position: absolute;
+    bottom: -22px; left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Cinzel', serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    color: var(--gold);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  /* ===== MENSAJE Y PREMIO ===== */
+  .message {
+    text-align: center;
+    margin: 30px 0 20px;
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+  }
+
+  .message-text {
+    font-family: 'Bodoni Moda', serif;
+    font-style: italic;
+    font-size: 1.3rem;
+    color: var(--ivory);
+    opacity: 0.9;
+  }
+
+  .message-prize {
+    font-family: 'Cinzel', serif;
+    font-weight: 900;
+    font-size: 4rem;
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold-deep));
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    letter-spacing: 0.05em;
+    margin-top: 8px;
+    line-height: 1;
+    filter: drop-shadow(0 0 20px rgba(245,207,107,0.6));
+  }
+
+  .message-prize.win-major {
+    animation: prizeMajor 1.6s cubic-bezier(0.34, 1.6, 0.5, 1) both;
+    font-size: 5.5rem;
+  }
+  .message-prize.win-mega {
+    animation: prizeMega 2s cubic-bezier(0.34, 1.6, 0.5, 1) both;
+    font-size: 7rem;
+  }
+  .message-prize.win-minor {
+    animation: prizeMinor 1.2s cubic-bezier(0.34, 1.4, 0.5, 1) both;
+  }
+  .message-prize.return-partial {
+    animation: prizeReturn 1.2s ease both;
+    background: linear-gradient(180deg, #c9b890, #6a5840);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    filter: none;
+  }
+
+  @keyframes prizeMinor {
+    0%   { transform: scale(0.3); opacity: 0; }
+    60%  { transform: scale(1.2); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes prizeMajor {
+    0%   { transform: scale(0.2) rotate(-10deg); opacity: 0; filter: drop-shadow(0 0 0 transparent) blur(8px); }
+    40%  { transform: scale(1.4) rotate(3deg); opacity: 1; filter: drop-shadow(0 0 30px rgba(245,207,107,0.9)) blur(0); }
+    70%  { transform: scale(0.95) rotate(-1deg); }
+    100% { transform: scale(1) rotate(0); filter: drop-shadow(0 0 20px rgba(245,207,107,0.6)); }
+  }
+  @keyframes prizeMega {
+    0%   { transform: scale(0.1) rotate(-15deg); opacity: 0; filter: blur(12px); }
+    25%  { transform: scale(1.6) rotate(5deg); opacity: 1; filter: drop-shadow(0 0 40px rgba(245,207,107,1)) blur(0); }
+    45%  { transform: scale(1.1) rotate(-3deg); }
+    65%  { transform: scale(1.3) rotate(2deg); }
+    100% { transform: scale(1.15) rotate(0); filter: drop-shadow(0 0 30px rgba(245,207,107,0.8)); }
+  }
+  @keyframes prizeReturn {
+    0%   { transform: scale(0.5); opacity: 0; }
+    100% { transform: scale(0.85); opacity: 0.85; }
+  }
+
+  /* Texto de combinación animado */
+  .combo-name {
+    font-family: 'Cinzel', serif;
+    font-weight: 900;
+    font-size: 1.4rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    background: linear-gradient(90deg, var(--gold-bright), var(--gold), var(--gold-bright));
+    background-size: 200% auto;
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    animation: shimmerText 2s linear infinite;
+    display: none;
+  }
+  .combo-name.show { display: block; animation: comboReveal 0.6s ease both, shimmerText 2s linear 0.6s infinite; }
+
+  @keyframes comboReveal {
+    0% { opacity: 0; transform: translateY(20px); letter-spacing: 0.5em; }
+    100% { opacity: 1; transform: translateY(0); letter-spacing: 0.2em; }
+  }
+  @keyframes shimmerText {
+    0% { background-position: 0% center; }
+    100% { background-position: 200% center; }
+  }
+
+  /* ===== CONTROLES ===== */
+  .controls {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+    margin-top: 24px;
+  }
+
+  .bet-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .bet-label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.25em;
+    color: var(--gold);
+    text-transform: uppercase;
+  }
+
+  .bet-btn {
+    width: 36px; height: 36px;
+    border: 1px solid var(--gold-deep);
+    background: rgba(74,14,14,0.4);
+    color: var(--gold);
+    font-family: 'Bodoni Moda', serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: all 0.2s;
+  }
+  .bet-btn:hover { background: var(--burgundy); border-color: var(--gold); transform: scale(1.08); }
+  .bet-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .bet-amount {
+    font-family: 'Bodoni Moda', serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--ivory);
+    min-width: 90px;
+    text-align: center;
+    padding: 4px 12px;
+    border-bottom: 1px solid var(--gold-deep);
+  }
+
+  .action-btn {
+    font-family: 'Cinzel', serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    padding: 16px 50px;
+    background: linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 50%, var(--gold-deep) 100%);
+    color: var(--bg-deep);
+    border: none;
+    cursor: pointer;
+    border-radius: 2px;
+    box-shadow: 0 4px 0 var(--gold-deep), 0 8px 25px rgba(212,161,74,0.4);
+    transition: all 0.15s;
+  }
+  .action-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 0 var(--gold-deep), 0 12px 30px rgba(212,161,74,0.5);
+  }
+  .action-btn:active:not(:disabled) {
+    transform: translateY(2px);
+    box-shadow: 0 2px 0 var(--gold-deep);
+  }
+  .action-btn:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(0.5); }
+
+  .action-btn.secondary {
+    background: transparent;
+    color: var(--gold);
+    border: 1px solid var(--gold-deep);
+    box-shadow: none;
+  }
+  .action-btn.secondary:hover:not(:disabled) {
+    border-color: var(--gold);
+    background: rgba(212,161,74,0.1);
+    transform: translateY(-2px);
+    box-shadow: none;
+  }
+
+  .action-btn.auto-active {
+    background: linear-gradient(180deg, #c4485a, #6a1828);
+    color: var(--cream);
+    border: 1px solid var(--gold);
+    box-shadow: 0 4px 0 #4a0010, 0 8px 25px rgba(196,72,90,0.4);
+  }
+
+  .button-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .auto-counter {
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    color: var(--gold);
+    margin-top: 4px;
+    min-height: 1.2em;
+    text-align: center;
+  }
+
+  .auto-help {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 0.85rem;
+    color: var(--ivory);
+    opacity: 0.5;
+    text-align: center;
+    margin-top: 2px;
+    max-width: 380px;
+  }
+
+  .rolls-indicator {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 8px;
+  }
+  .roll-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: rgba(212,161,74,0.2);
+    border: 1px solid var(--gold-deep);
+    transition: all 0.3s;
+  }
+  .roll-dot.used { background: var(--gold); box-shadow: 0 0 8px var(--gold); }
+  .rolls-text {
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    color: var(--gold);
+    margin-right: 10px;
+  }
+
+  /* ===== TOAST ===== */
+  .toast {
+    position: fixed;
+    top: 30px; left: 50%;
+    transform: translateX(-50%) translateY(-150%);
+    background: linear-gradient(180deg, var(--burgundy-light), var(--burgundy));
+    border: 1px solid var(--gold);
+    color: var(--ivory);
+    padding: 14px 32px;
+    font-family: 'Bodoni Moda', serif;
+    font-style: italic;
+    z-index: 250;
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ====== EFECTOS DE GANANCIA ====== */
+  .fx-layer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 150;
+    overflow: hidden;
+  }
+
+  /* Confeti dorado */
+  .confetti {
+    position: absolute;
+    width: 12px; height: 18px;
+    top: -30px;
+    animation: confettiFall linear forwards;
+  }
+  @keyframes confettiFall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(105vh) rotate(720deg); opacity: 0.3; }
+  }
+
+  /* Monedas cayendo */
+  .coin {
+    position: absolute;
+    width: 32px; height: 32px;
+    top: -50px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, var(--gold-bright), var(--gold-deep));
+    box-shadow: 0 0 12px rgba(245,207,107,0.7), inset -2px -2px 4px rgba(0,0,0,0.3);
+    animation: coinFall linear forwards;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #2a1a05;
+    font-family: 'Cinzel', serif;
+    font-weight: 900;
+    font-size: 0.9rem;
+  }
+  .coin::before {
+    content: '⚜';
+    font-size: 0.85em;
+  }
+  @keyframes coinFall {
+    0% { transform: translateY(0) rotateY(0deg); opacity: 1; }
+    100% { transform: translateY(110vh) rotateY(1440deg); opacity: 0.5; }
+  }
+
+  /* Partículas radiales (explosión) */
+  .particle {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 8px; height: 8px;
+    background: var(--gold-bright);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--gold-bright);
+    animation: particleBurst 1.2s ease-out forwards;
+  }
+  @keyframes particleBurst {
+    0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    100% { transform: translate(calc(-50% + var(--px, 0)), calc(-50% + var(--py, 0))) scale(0); opacity: 0; }
+  }
+
+  /* Screen shake */
+  .shake { animation: shake 0.5s ease-in-out; }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-6px); }
+    20%, 40%, 60%, 80% { transform: translateX(6px); }
+  }
+
+  /* Flash */
+  .flash-overlay {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 140;
+    opacity: 0;
+    transition: opacity 0.3s;
+    background: radial-gradient(circle, rgba(245,207,107,0.5) 0%, transparent 70%);
+  }
+  .flash-overlay.flash-active { animation: flashAnim 0.8s ease-in-out; }
+  @keyframes flashAnim {
+    0%, 100% { opacity: 0; }
+    20% { opacity: 1; }
+    60% { opacity: 0.4; }
+  }
+
+  /* Jackpot overlay grande */
+  .jackpot-banner {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    z-index: 180;
+    pointer-events: none;
+    font-family: 'Cinzel', serif;
+    font-weight: 900;
+    font-size: clamp(3rem, 12vw, 9rem);
+    letter-spacing: 0.15em;
+    background: linear-gradient(180deg, #fff, var(--gold-bright), var(--gold-deep));
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 60px rgba(245,207,107,1);
+    filter: drop-shadow(0 0 30px rgba(245,207,107,0.9));
+    white-space: nowrap;
+    opacity: 0;
+  }
+  .jackpot-banner.show {
+    animation: jackpotBanner 3.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+  @keyframes jackpotBanner {
+    0%   { transform: translate(-50%, -50%) scale(0) rotate(-30deg); opacity: 0; }
+    15%  { transform: translate(-50%, -50%) scale(1.4) rotate(8deg); opacity: 1; }
+    25%  { transform: translate(-50%, -50%) scale(1) rotate(-3deg); }
+    35%  { transform: translate(-50%, -50%) scale(1.2) rotate(2deg); }
+    80%  { transform: translate(-50%, -50%) scale(1.1) rotate(0); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(0.8) rotate(0); opacity: 0; }
+  }
+
+  /* Control de audio flotante */
+  #audio-control {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 220;
+  }
+  #audio-toggle {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid var(--gold-deep);
+    background: linear-gradient(180deg, rgba(74,14,14,0.85), rgba(26,8,8,0.85));
+    backdrop-filter: blur(6px);
+    color: var(--gold);
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Bodoni Moda', serif;
+  }
+  #audio-toggle:hover {
+    border-color: var(--gold);
+    transform: scale(1.05);
+    box-shadow: 0 0 16px rgba(212,161,74,0.3);
+  }
+  #audio-toggle.muted { color: rgba(212,161,74,0.4); }
+
+  #audio-panel {
+    position: absolute;
+    bottom: 54px;
+    right: 0;
+    background: linear-gradient(180deg, rgba(26,10,10,0.96), rgba(13,5,5,0.96));
+    border: 1px solid var(--gold-deep);
+    backdrop-filter: blur(10px);
+    padding: 16px 18px;
+    width: 240px;
+    border-radius: 4px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.6);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(8px) scale(0.95);
+    transform-origin: bottom right;
+    transition: all 0.25s cubic-bezier(0.34, 1.4, 0.5, 1);
+  }
+  #audio-control.open #audio-panel {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+  }
+
+  .audio-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .audio-label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    color: var(--gold);
+    text-transform: uppercase;
+    min-width: 52px;
+  }
+  .audio-value {
+    font-family: 'Bodoni Moda', serif;
+    font-size: 0.85rem;
+    color: var(--ivory);
+    min-width: 26px;
+    text-align: right;
+  }
+
+  /* Slider personalizado */
+  .audio-row input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: 1;
+    height: 4px;
+    background: linear-gradient(90deg, var(--gold) 0%, var(--gold) var(--p, 50%), rgba(212,161,74,0.2) var(--p, 50%), rgba(212,161,74,0.2) 100%);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  .audio-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold-deep));
+    border: 1px solid var(--bg-deep);
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(245,207,107,0.4);
+  }
+  .audio-row input[type=range]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold-deep));
+    border: 1px solid var(--bg-deep);
+    cursor: pointer;
+  }
+
+  .audio-mute {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--gold-deep);
+    color: var(--gold);
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s;
+    margin-top: 4px;
+  }
+  .audio-mute:hover { background: rgba(212,161,74,0.1); border-color: var(--gold); }
+  .audio-mute.active {
+    background: var(--burgundy);
+    color: var(--cream);
+    border-color: var(--gold);
+  }
+
+  /* Animaciones genéricas */
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Móvil */
+  @media (max-width: 600px) {
+    .die-wrap, .die { width: 60px; height: 60px; }
+    .face { padding: 9px; }
+    .pip { width: 8px; height: 8px; }
+    .face.f1 { transform: rotateY(  0deg) translateZ(30px); }
+    .face.f6 { transform: rotateY(180deg) translateZ(30px); }
+    .face.f3 { transform: rotateY( 90deg) translateZ(30px); }
+    .face.f4 { transform: rotateY(-90deg) translateZ(30px); }
+    .face.f2 { transform: rotateX( 90deg) translateZ(30px); }
+    .face.f5 { transform: rotateX(-90deg) translateZ(30px); }
+    .die-wrap.golden .face { font-size: 1.5rem; }
+    .stats { gap: 14px; }
+    .stat { min-width: 100px; padding: 10px 14px; }
+    .stat-value { font-size: 1.3rem; }
+    .table { padding: 40px 16px 30px; }
+    .action-btn { padding: 14px 26px; font-size: 0.8rem; letter-spacing: 0.2em; }
+    .dice-divider { display: none; }
+    .user-badge { padding: 8px 12px; gap: 8px; top: 14px; right: 14px; }
+    .user-name { font-size: 0.8rem; }
+    .user-balance { font-size: 0.65rem; }
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .shop-grid { grid-template-columns: 1fr; }
+    .message-prize { font-size: 3rem; }
+    .message-prize.win-major { font-size: 4.2rem; }
+    .message-prize.win-mega { font-size: 5rem; }
+    .modal { padding: 28px 20px 24px; }
+    .home-die { width: 48px; height: 48px; padding: 8px; }
+    .home-dice-decoration { gap: 18px; }
+    #audio-control { bottom: 14px; right: 14px; }
+    #audio-toggle { width: 38px; height: 38px; font-size: 1rem; }
+    #audio-panel { width: 220px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ================== PANTALLA INICIO ================== -->
+<div class="screen active" id="home-screen">
+
+  <div class="user-badge" id="user-badge">
+    <div class="user-avatar" id="badge-avatar">?</div>
+    <div class="user-info">
+      <div class="user-name" id="badge-name">Invitado</div>
+      <div class="user-balance" id="badge-balance">— ⚜</div>
+    </div>
+  </div>
+
+  <div class="home-ornament">❖ ❖ ❖</div>
+  <h1 class="home-title">Le Salon des Dés</h1>
+  <p class="home-subtitle">Establecido MCMXXVII · Donde la fortuna susurra a los audaces</p>
+
+  <div class="home-dice-decoration">
+    <div class="home-die"></div>
+    <div class="home-die"></div>
+    <div class="home-die"></div>
+    <div class="home-die"></div>
+  </div>
+
+  <div class="home-buttons">
+    <button class="home-btn" id="play-btn">Entrar al Salón</button>
+    <button class="home-btn secondary" id="rules-btn">Reglas y Premios</button>
+    <button class="home-btn secondary" id="profile-btn">Mi Perfil</button>
+    <button class="home-btn secondary" id="shop-btn">Comprar Saldo</button>
+  </div>
+</div>
+
+<!-- ================== PANTALLA DE JUEGO ================== -->
+<div class="screen" id="game-screen">
+  <div class="container">
+
+    <div class="game-topbar">
+      <button class="back-btn" id="back-home">← Volver</button>
+      <div class="game-title">Le Salon des Dés</div>
+      <div class="user-badge" id="game-user-badge" style="position: static;">
+        <div class="user-avatar" id="game-avatar">?</div>
+        <div class="user-info">
+          <div class="user-name" id="game-name">—</div>
+          <div class="user-balance" id="game-balance">— ⚜</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-label">Saldo</div>
+        <div class="stat-value" id="balance">1.000 ⚜</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Apuesta</div>
+        <div class="stat-value" id="bet-display">10 ⚜</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Última Ronda</div>
+        <div class="stat-value" id="last-win">—</div>
+      </div>
+    </div>
+
+    <div class="table" id="game-table">
+      <div class="corner tl"></div>
+      <div class="corner tr"></div>
+      <div class="corner bl"></div>
+      <div class="corner br"></div>
+
+      <div class="dice-row" id="dice-row"></div>
+
+      <div class="message">
+        <div class="combo-name" id="combo-name"></div>
+        <div class="message-text" id="msg-text">Realice su apuesta y lance los dados, monsieur.</div>
+        <div class="message-prize" id="msg-prize" style="display:none;"></div>
+      </div>
+
+      <div class="controls">
+        <div class="bet-row">
+          <span class="bet-label">Apuesta</span>
+          <button class="bet-btn" id="bet-down">−</button>
+          <span class="bet-amount" id="bet-amount">10 ⚜</span>
+          <button class="bet-btn" id="bet-up">+</button>
+        </div>
+
+        <div class="button-row">
+          <button class="action-btn" id="roll-btn">Lanzar</button>
+          <button class="action-btn secondary" id="end-btn" style="display:none;">Plantarse</button>
+          <button class="action-btn secondary" id="auto-btn" title="Lanza automáticamente hasta un máximo de 20 rondas con la apuesta actual.">Auto · hasta 20</button>
+        </div>
+        <div class="auto-counter" id="auto-counter"></div>
+
+        <div class="rolls-indicator">
+          <span class="rolls-text">Tiradas</span>
+          <div class="roll-dot" id="dot-0"></div>
+          <div class="roll-dot" id="dot-1"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ================== MODALES ================== -->
+<div class="modal-overlay" id="rules-modal">
+  <div class="modal">
+    <div class="modal-corner tl"></div><div class="modal-corner tr"></div>
+    <div class="modal-corner bl"></div><div class="modal-corner br"></div>
+    <button class="modal-close" data-close>×</button>
+    <h2>Reglas del Juego</h2>
+    <div class="modal-divider">❖ ❖ ❖</div>
+
+    <p>Lance los <strong>cinco dados blancos</strong> junto con el <strong>dado dorado</strong> (el multiplicador, ×1 a ×6). Tiene <strong>dos tiradas por ronda</strong>: tras la primera puede tocar los dados que desee conservar — quedarán dorados — y relanzar el resto buscando una mejor combinación. También puede <em>plantarse</em> antes de la segunda tirada si ya tiene un buen resultado.</p>
+    <p>En las escaleras, el orden en que aparezcan los dados <strong>no importa</strong>: cuentan los valores presentes.</p>
+
+    <h3>Tabla de Premios</h3>
+    <div class="pay-row">
+      <span class="pay-name">Trío</span>
+      <span class="pay-desc">Tres dados blancos iguales</span>
+      <span class="pay-mult">× ½</span>
+    </div>
+    <div class="pay-row">
+      <span class="pay-name">Esc. Pequeña</span>
+      <span class="pay-desc">Cuatro consecutivos</span>
+      <span class="pay-mult">× 1</span>
+    </div>
+    <div class="pay-row">
+      <span class="pay-name">Póker</span>
+      <span class="pay-desc">Cuatro dados blancos iguales</span>
+      <span class="pay-mult">× 2</span>
+    </div>
+    <div class="pay-row">
+      <span class="pay-name">Esc. Grande</span>
+      <span class="pay-desc">Los cinco consecutivos</span>
+      <span class="pay-mult">× 6</span>
+    </div>
+    <div class="pay-row">
+      <span class="pay-name">Quinteto</span>
+      <span class="pay-desc">Cinco iguales · escala con valor y multiplicador</span>
+      <span class="pay-mult">× valor × mult.</span>
+    </div>
+    <div class="pay-row">
+      <span class="pay-name legendary">★ JACKPOT ★</span>
+      <span class="pay-desc">Cinco seises + Dado Dorado en ×6</span>
+      <span class="pay-mult">× 200</span>
+    </div>
+
+    <p style="margin-top:18px; font-style:italic; opacity:0.6; font-size:0.9rem; text-align:center;">
+      Recuerde: la casa siempre cobra su parte. Juegue con prudencia.
+    </p>
+  </div>
+</div>
+
+<div class="modal-overlay" id="profile-modal">
+  <div class="modal">
+    <div class="modal-corner tl"></div><div class="modal-corner tr"></div>
+    <div class="modal-corner bl"></div><div class="modal-corner br"></div>
+    <button class="modal-close" data-close>×</button>
+
+    <!-- Vista cuando NO hay usuario: registro/login -->
+    <div id="auth-view">
+      <h2 id="auth-title">Únase al Salón</h2>
+      <div class="modal-divider">❖ ❖ ❖</div>
+      <p id="auth-subtitle" style="text-align:center; opacity:0.7;">Cree su cuenta para guardar su progreso, estadísticas e historial de partidas.</p>
+
+      <div class="form-group">
+        <label class="form-label">Nombre</label>
+        <input type="text" class="form-input" id="register-name" placeholder="Ej. Marcel Dupont" maxlength="30">
+      </div>
+
+      <button class="action-btn" id="register-btn" style="width:100%; margin-top: 8px;">Crear cuenta</button>
+      <p class="demo-notice">Demo · sin contraseña, sin pago real</p>
+    </div>
+
+    <!-- Vista cuando hay usuario: stats e historial -->
+    <div id="profile-view" style="display:none;">
+      <div class="profile-header">
+        <div class="profile-avatar-big" id="profile-avatar">?</div>
+        <div class="profile-name" id="profile-name">—</div>
+        <div class="profile-since" id="profile-since">Miembro desde —</div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-card-label">Saldo Actual</div>
+          <div class="stat-card-value" id="profile-balance">— ⚜</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-label">Rondas Jugadas</div>
+          <div class="stat-card-value" id="profile-rounds">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-label">Total Apostado</div>
+          <div class="stat-card-value" id="profile-wagered">0,00 ⚜</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-label">Total Ganado</div>
+          <div class="stat-card-value" id="profile-won">0,00 ⚜</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-label">Beneficio Neto</div>
+          <div class="stat-card-value" id="profile-net">0,00 ⚜</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-label">Mayor Premio</div>
+          <div class="stat-card-value" id="profile-biggest">0,00 ⚜</div>
+        </div>
+      </div>
+
+      <h3>Últimas Rondas</h3>
+      <div class="history-list" id="history-list">
+        <div class="history-empty">Aún no ha jugado ninguna ronda</div>
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button class="home-btn secondary" id="switch-user-btn" style="flex: 1;">Cambiar usuario</button>
+        <button class="home-btn secondary" id="logout-btn" style="flex: 1;">Cerrar sesión</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de confirmación reutilizable -->
+<div class="modal-overlay" id="confirm-modal">
+  <div class="modal" style="max-width: 380px;">
+    <div class="modal-corner tl"></div><div class="modal-corner tr"></div>
+    <div class="modal-corner bl"></div><div class="modal-corner br"></div>
+    <h2 id="confirm-title">¿Cerrar sesión?</h2>
+    <div class="modal-divider">❖ ❖ ❖</div>
+    <p id="confirm-message" style="text-align: center;">Se perderán las estadísticas e historial de esta sesión. Esta acción no se puede deshacer.</p>
+    <div style="display: flex; gap: 12px; margin-top: 24px;">
+      <button class="home-btn secondary" id="confirm-no" style="flex: 1;">Cancelar</button>
+      <button class="home-btn" id="confirm-yes" style="flex: 1; background: linear-gradient(180deg, #c4485a, #6a1828); color: var(--cream); box-shadow: 0 4px 0 #4a0010;">Cerrar sesión</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="shop-modal">
+  <div class="modal">
+    <div class="modal-corner tl"></div><div class="modal-corner tr"></div>
+    <div class="modal-corner bl"></div><div class="modal-corner br"></div>
+    <button class="modal-close" data-close>×</button>
+
+    <h2>Comprar Saldo</h2>
+    <div class="modal-divider">❖ ❖ ❖</div>
+    <p style="text-align:center; opacity:0.7;">Adquiera luises para continuar disfrutando del salón.</p>
+
+    <div class="shop-grid">
+      <div class="shop-pack" data-amount="500" data-price="4.99">
+        <div class="shop-amount">500 ⚜</div>
+        <div class="shop-bonus">&nbsp;</div>
+        <div class="shop-price">4,99 €</div>
+      </div>
+      <div class="shop-pack" data-amount="1200" data-price="9.99">
+        <div class="shop-amount">1.200 ⚜</div>
+        <div class="shop-bonus">+20% extra</div>
+        <div class="shop-price">9,99 €</div>
+      </div>
+      <div class="shop-pack featured" data-amount="3200" data-price="24.99">
+        <div class="shop-amount">3.200 ⚜</div>
+        <div class="shop-bonus">+28% extra</div>
+        <div class="shop-price">24,99 €</div>
+      </div>
+      <div class="shop-pack" data-amount="7000" data-price="49.99">
+        <div class="shop-amount">7.000 ⚜</div>
+        <div class="shop-bonus">+40% extra</div>
+        <div class="shop-price">49,99 €</div>
+      </div>
+    </div>
+
+    <p class="demo-notice">Demo · ningún cargo real será procesado</p>
+  </div>
+</div>
+
+<!-- Audio de fondo (música del salón) -->
+<audio id="bg-music" loop preload="auto" src="Midnight_Dice_Room.mp3"></audio>
+
+<!-- Control de audio flotante (botón + slider) -->
+<div id="audio-control">
+  <button id="audio-toggle" title="Ajustar sonido">♪</button>
+  <div id="audio-panel">
+    <div class="audio-row">
+      <span class="audio-label">Música</span>
+      <input type="range" id="music-volume" min="0" max="100" value="45">
+      <span class="audio-value" id="music-volume-val">45</span>
+    </div>
+    <div class="audio-row">
+      <span class="audio-label">Efectos</span>
+      <input type="range" id="sfx-volume" min="0" max="100" value="50">
+      <span class="audio-value" id="sfx-volume-val">50</span>
+    </div>
+    <button id="mute-btn" class="audio-mute">Silenciar todo</button>
+  </div>
+</div>
+
+<!-- Capas de FX -->
+<div class="fx-layer" id="fx-layer"></div>
+<div class="flash-overlay" id="flash-overlay"></div>
+<div class="jackpot-banner" id="jackpot-banner">★ JACKPOT ★</div>
+<div class="toast" id="toast"></div>
+
+<script>
+  // ============ ESTADO GLOBAL ============
+  // En una app real, todos estos datos persistirían en localStorage / backend.
+  // En este artifact se mantienen en memoria durante la sesión.
+  const state = {
+    user: null,            // { name, since, stats: {...}, history: [...] }
+    balance: 0,
+    bet: 10,
+    minBet: 5,
+    maxBet: 1000,
+    dice: [1,1,1,1,1],
+    multiplier: 1,
+    held: [false,false,false,false,false],
+    multHeld: false,
+    rollCount: 0,
+    maxRolls: 2,
+    canRoll: true,
+    inRound: false,
+    autoPlaying: false,
+    autoRemaining: 0,
+    autoStop: false,
+    musicVolume: 0.45,
+    sfxVolume: 0.5
+  };
+
+  const $ = id => document.getElementById(id);
+  const fmt = n => {
+    // Si es entero, mostrar sin decimales con separador de miles. Si no, con 2 decimales.
+    if (Number.isInteger(n)) {
+      return n.toLocaleString('es-ES') + ' ⚜';
+    }
+    return n.toFixed(2).replace('.', ',') + ' ⚜';
+  };
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  // ============ NAVEGACIÓN ENTRE PANTALLAS ============
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    $(id).classList.add('active');
+    window.scrollTo(0, 0);
+  }
+
+  function openModal(id) { $(id).classList.add('show'); }
+  function closeModal(id) { $(id).classList.remove('show'); }
+
+  document.querySelectorAll('[data-close]').forEach(b => {
+    b.addEventListener('click', () => b.closest('.modal-overlay').classList.remove('show'));
+  });
+  document.querySelectorAll('.modal-overlay').forEach(o => {
+    o.addEventListener('click', e => { if (e.target === o) o.classList.remove('show'); });
+  });
+
+  // ============ USUARIO Y PERSISTENCIA ============
+  function createUser(name) {
+    state.user = {
+      name: name,
+      since: new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }),
+      stats: {
+        rounds: 0,
+        wagered: 0,
+        won: 0,
+        biggest: 0
+      },
+      history: []
+    };
+    state.balance = 1000;
+    refreshUserUI();
+  }
+
+  function logout() {
+    state.user = null;
+    state.balance = 0;
+    refreshUserUI();
+    refreshProfileModal();
+  }
+
+  function getInitials(name) {
+    return name.split(' ').map(s => s[0]).filter(Boolean).slice(0,2).join('').toUpperCase() || '?';
+  }
+
+  function refreshUserUI() {
+    const name = state.user ? state.user.name : 'Invitado';
+    const init = state.user ? getInitials(state.user.name) : '?';
+    const bal = state.user ? fmt(state.balance) : '— ⚜';
+    $('badge-name').textContent = name;
+    $('badge-avatar').textContent = init;
+    $('badge-balance').textContent = bal;
+    $('game-name').textContent = name;
+    $('game-avatar').textContent = init;
+    $('game-balance').textContent = bal;
+    if ($('balance')) $('balance').textContent = bal;
+  }
+
+  function refreshProfileModal() {
+    if (!state.user) {
+      $('auth-view').style.display = 'block';
+      $('profile-view').style.display = 'none';
+      // Resetear textos por si venían del modo "cambiar usuario"
+      $('auth-title').textContent = 'Únase al Salón';
+      $('auth-subtitle').textContent = 'Cree su cuenta para guardar su progreso, estadísticas e historial de partidas.';
+      return;
+    }
+    $('auth-view').style.display = 'none';
+    $('profile-view').style.display = 'block';
+    const u = state.user;
+    $('profile-name').textContent = u.name;
+    $('profile-avatar').textContent = getInitials(u.name);
+    $('profile-since').textContent = 'Miembro desde ' + u.since;
+    $('profile-balance').textContent = fmt(state.balance);
+    $('profile-rounds').textContent = u.stats.rounds;
+    $('profile-wagered').textContent = fmt(u.stats.wagered);
+    $('profile-won').textContent = fmt(u.stats.won);
+    const net = u.stats.won - u.stats.wagered;
+    const netEl = $('profile-net');
+    netEl.textContent = (net >= 0 ? '+' : '') + fmt(net);
+    netEl.classList.toggle('positive', net > 0);
+    netEl.classList.toggle('negative', net < 0);
+    $('profile-biggest').textContent = fmt(u.stats.biggest);
+
+    // Historial
+    const hl = $('history-list');
+    if (u.history.length === 0) {
+      hl.innerHTML = '<div class="history-empty">Aún no ha jugado ninguna ronda</div>';
+    } else {
+      hl.innerHTML = u.history.slice().reverse().slice(0, 30).map(h => {
+        const cls = h.net > 0 ? 'win' : 'loss';
+        const sign = h.net >= 0 ? '+' : '';
+        return `<div class="history-item">
+          <span class="history-name">${h.name}</span>
+          <span class="history-amount ${cls}">${sign}${fmt(h.net)}</span>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  // ============ DADOS 3D ============
+  function pipPattern(value) {
+    switch(value){
+      case 1: return ['p3'];
+      case 2: return ['p1','p5'];
+      case 3: return ['p1','p3','p5'];
+      case 4: return ['p1','p2','p4','p5'];
+      case 5: return ['p1','p2','p3','p4','p5'];
+      case 6: return ['p1','p2','p4','p5','p8','p9'];
+    }
+  }
+
+  const ORIENTATIONS = {
+    1: { x:    0, y:    0 }, 6: { x:    0, y:  180 },
+    3: { x:    0, y:  -90 }, 4: { x:    0, y:   90 },
+    2: { x:  -90, y:    0 }, 5: { x:   90, y:    0 }
+  };
+
+  function createCubeFaces(isGolden=false) {
+    const faces = ['f1','f2','f3','f4','f5','f6'];
+    const values = [1,2,3,4,5,6];
+    return faces.map((cls, i) => {
+      const v = values[i];
+      if (isGolden) return `<div class="face ${cls}">×${v}</div>`;
+      const pips = pipPattern(v).map(p => `<div class="pip ${p}"></div>`).join('');
+      return `<div class="face ${cls}">${pips}</div>`;
+    }).join('');
+  }
+
+  function buildDice() {
+    const row = $('dice-row');
+    row.innerHTML = '';
+    for (let i=0; i<5; i++) {
+      const wrap = document.createElement('div');
+      wrap.className = 'die-wrap';
+      wrap.dataset.idx = i;
+      wrap.innerHTML = `<div class="die" id="die-${i}">${createCubeFaces(false)}</div><span class="hold-label">HOLD</span>`;
+      wrap.addEventListener('click', () => toggleHold(i));
+      row.appendChild(wrap);
+    }
+    const div = document.createElement('div');
+    div.className = 'dice-divider';
+    row.appendChild(div);
+
+    const wrapG = document.createElement('div');
+    wrapG.className = 'die-wrap golden';
+    wrapG.id = 'wrap-gold';
+    wrapG.innerHTML = `<div class="die" id="die-gold">${createCubeFaces(true)}</div><span class="hold-label">HOLD</span><div class="multiplier-label">MULTIPLICADOR</div>`;
+    wrapG.addEventListener('click', () => toggleMultHold());
+    row.appendChild(wrapG);
+  }
+
+  // También llenamos los dados decorativos de la home
+  function buildHomeDice() {
+    document.querySelectorAll('.home-die').forEach((d, i) => {
+      const v = [4, 6, 2, 3][i];
+      if (i === 3) { d.textContent = '×6'; d.style.fontFamily = 'Bodoni Moda, serif'; d.style.fontWeight = '900'; d.style.fontSize = '1.6rem'; d.style.color = '#2a1a05'; d.style.display = 'flex'; d.style.alignItems = 'center'; d.style.justifyContent = 'center'; d.style.padding = '0'; }
+      else d.innerHTML = pipPattern(v).map(p => `<div class="pip ${p}"></div>`).join('');
+    });
+  }
+
+  function setDieValue(dieElem, value) {
+    const o = ORIENTATIONS[value];
+    dieElem.style.transform = `rotateX(${o.x}deg) rotateY(${o.y}deg)`;
+  }
+
+  function renderAll() {
+    for (let i=0; i<5; i++) {
+      const die = $('die-' + i);
+      setDieValue(die, state.dice[i]);
+      die.parentElement.classList.toggle('held', state.held[i] && state.inRound);
+    }
+    setDieValue($('die-gold'), state.multiplier);
+    $('wrap-gold').classList.toggle('held', state.multHeld && state.inRound);
+  }
+
+  // ============ INTERACCIÓN ============
+  function toggleHold(i) {
+    if (state.autoPlaying) return;
+    if (!state.inRound || state.rollCount === 0 || state.rollCount >= state.maxRolls) return;
+    state.held[i] = !state.held[i];
+    playHoldClick();
+    renderAll();
+  }
+  function toggleMultHold() {
+    if (state.autoPlaying) return;
+    if (!state.inRound || state.rollCount === 0 || state.rollCount >= state.maxRolls) return;
+    state.multHeld = !state.multHeld;
+    playHoldClick();
+    renderAll();
+  }
+
+  function adjustBet(delta) {
+    if (state.inRound || state.autoPlaying) return;
+    const steps = [5, 10, 20, 50, 100, 150, 200, 300, 400, 500, 750, 1000];
+    const cur = state.bet;
+    let idx = steps.indexOf(cur);
+    if (idx === -1) idx = steps.findIndex(s => s >= cur);
+    idx = Math.max(0, Math.min(steps.length-1, idx + delta));
+    state.bet = steps[idx];
+    if (state.bet > state.balance) {
+      for (let i = idx; i >= 0; i--) {
+        if (steps[i] <= state.balance) { state.bet = steps[i]; break; }
+      }
+    }
+    updateBetUI();
+  }
+
+  function updateBetUI() {
+    $('bet-amount').textContent = fmt(state.bet);
+    $('bet-display').textContent = fmt(state.bet);
+    $('bet-down').disabled = state.inRound || state.autoPlaying;
+    $('bet-up').disabled = state.inRound || state.autoPlaying;
+  }
+
+  function updateRollsUI() {
+    for (let i=0; i<2; i++) $('dot-'+i).classList.toggle('used', i < state.rollCount);
+  }
+
+  // ============ TIRADA ============
+  async function rollDice() {
+    if (!state.canRoll) return;
+
+    if (state.rollCount === 0) {
+      if (state.balance < state.bet) {
+        showToast('Saldo insuficiente para esta apuesta');
+        return;
+      }
+      state.balance -= state.bet;
+      refreshUserUI();
+      state.held = [false,false,false,false,false];
+      state.multHeld = false;
+      state.inRound = true;
+      $('msg-text').textContent = '';
+      $('msg-prize').style.display = 'none';
+      $('combo-name').classList.remove('show');
+      $('end-btn').style.display = 'inline-block';
+    }
+
+    state.canRoll = false;
+
+    // Sonido de dados al lanzar
+    playDiceRoll();
+
+    const targets = [];
+    for (let i=0; i<5; i++) {
+      if (!state.held[i]) targets.push({ wrap: $('die-' + i).parentElement, cube: $('die-' + i), idx: i, isGold: false });
+    }
+    if (!state.multHeld) targets.push({ wrap: $('wrap-gold'), cube: $('die-gold'), idx: -1, isGold: true });
+
+    const newValues = {};
+    for (let i=0; i<5; i++) if (!state.held[i]) newValues[i] = 1 + Math.floor(Math.random()*6);
+    let newMult = state.multiplier;
+    if (!state.multHeld) newMult = 1 + Math.floor(Math.random()*6);
+
+    targets.forEach((t, n) => {
+      t.wrap.classList.remove('airborne');
+      t.cube.classList.remove('spinning');
+      t.cube.style.animation = 'none';
+      t.cube.style.transition = 'none';
+      void t.cube.offsetWidth;
+
+      const turnsX = (3 + Math.floor(Math.random()*3)) * (Math.random() < 0.5 ? -1 : 1);
+      const turnsY = (3 + Math.floor(Math.random()*3)) * (Math.random() < 0.5 ? -1 : 1);
+      const turnsZ = (1 + Math.floor(Math.random()*2)) * (Math.random() < 0.5 ? -1 : 1);
+      const driftX = (Math.random() * 30 - 15) + 'px';
+
+      t.cube.style.setProperty('--rx', (turnsX * 360) + 'deg');
+      t.cube.style.setProperty('--ry', (turnsY * 360) + 'deg');
+      t.cube.style.setProperty('--rz', (turnsZ * 360) + 'deg');
+      t.wrap.style.setProperty('--drift', driftX);
+
+      const delay = Math.random() * 130;
+      t.wrap.style.animationDelay = delay + 'ms';
+      t.cube.style.animationDelay = delay + 'ms';
+
+      t.cube.style.animation = '';
+      t.cube.style.transition = '';
+      void t.cube.offsetWidth;
+
+      t.wrap.classList.add('airborne');
+      t.cube.classList.add('spinning');
+    });
+
+    await sleep(800);
+
+    targets.forEach(t => {
+      t.cube.classList.remove('spinning');
+      t.cube.style.animation = '';
+      const wobble = () => (Math.random() * 16 - 8);
+      const value = t.isGold ? newMult : newValues[t.idx];
+      const o = ORIENTATIONS[value];
+      t.cube.style.transition = 'transform 0.35s cubic-bezier(0.4, 1.6, 0.5, 1)';
+      t.cube.style.transform = `rotateX(${o.x + wobble()}deg) rotateY(${o.y + wobble()}deg) rotateZ(${wobble()*0.3}deg)`;
+    });
+
+    // Cortar el rumor de dados rodando y reproducir el aterrizaje
+    stopDiceRollSound();
+    playDiceLandSound();
+
+    for (const i in newValues) state.dice[i] = newValues[i];
+    state.multiplier = newMult;
+
+    await sleep(400);
+
+    targets.forEach(t => {
+      t.wrap.classList.remove('airborne');
+      t.wrap.style.animationDelay = '';
+      t.cube.style.animationDelay = '';
+      t.cube.style.transition = 'transform 0.6s cubic-bezier(0.4, 1.4, 0.5, 1)';
+      const value = t.isGold ? state.multiplier : state.dice[t.idx];
+      const o = ORIENTATIONS[value];
+      t.cube.style.transform = `rotateX(${o.x}deg) rotateY(${o.y}deg)`;
+    });
+
+    state.rollCount++;
+    updateRollsUI();
+
+    if (state.rollCount >= state.maxRolls) {
+      finalizeRound();
+    } else {
+      $('msg-text').textContent = `Tirada ${state.rollCount} de ${state.maxRolls}. Toque dados para conservarlos.`;
+      $('roll-btn').textContent = 'Relanzar';
+      state.canRoll = true;
+    }
+  }
+
+  // ============ EVALUACIÓN ============
+  function evaluate(dice, mult) {
+    const counts = {};
+    dice.forEach(d => counts[d] = (counts[d]||0)+1);
+    const sorted = [...dice].sort((a,b)=>a-b);
+    const unique = [...new Set(sorted)];
+
+    if (counts[6] === 5 && mult === 6) return { name: 'JACKPOT', mult: 200, type: 'jackpot' };
+
+    for (const v in counts) {
+      if (counts[v] === 5) return { name: `Quinteto de ${v}s`, mult: parseInt(v) * mult, type: 'quinteto' };
+    }
+
+    if (unique.length === 5 && (sorted.join(',') === '1,2,3,4,5' || sorted.join(',') === '2,3,4,5,6')) {
+      return { name: 'Escalera Grande', mult: 6, type: 'escalera-grande' };
+    }
+
+    for (const v in counts) {
+      if (counts[v] === 4) return { name: `Póker de ${v}s`, mult: 2, type: 'poker' };
+    }
+
+    const seqs = [[1,2,3,4],[2,3,4,5],[3,4,5,6]];
+    for (const s of seqs) if (s.every(n => dice.includes(n))) return { name: 'Escalera Pequeña', mult: 1, type: 'escalera-pequena' };
+
+    for (const v in counts) {
+      if (counts[v] === 3) return { name: `Trío de ${v}s`, mult: 0.5, type: 'trio' };
+    }
+
+    return { name: 'Sin combinación', mult: 0, type: 'nada' };
+  }
+
+  function finalizeRound() {
+    state.inRound = false;
+    state.canRoll = true;
+    $('end-btn').style.display = 'none';
+    $('roll-btn').textContent = 'Lanzar';
+
+    const result = evaluate(state.dice, state.multiplier);
+    const win = state.bet * result.mult;
+    const netGain = win - state.bet;
+
+    // Estadísticas
+    if (state.user) {
+      state.user.stats.rounds++;
+      state.user.stats.wagered += state.bet;
+      state.user.stats.won += win;
+      if (win > state.user.stats.biggest) state.user.stats.biggest = win;
+      state.user.history.push({ name: result.name, net: netGain, when: Date.now() });
+      if (state.user.history.length > 200) state.user.history.shift();
+    }
+
+    if (win > 0) {
+      state.balance += win;
+      refreshUserUI();
+      const prize = $('msg-prize');
+      const combo = $('combo-name');
+
+      // Quitar todas las clases previas
+      prize.className = 'message-prize';
+      prize.style.display = 'block';
+      combo.classList.remove('show');
+      void combo.offsetWidth;
+
+      prize.textContent = '+' + fmt(win);
+
+      if (result.type === 'jackpot') {
+        combo.textContent = result.name;
+        combo.classList.add('show');
+        prize.classList.add('win-mega');
+        $('msg-text').textContent = '';
+        triggerJackpotFX();
+      } else if (netGain > 0) {
+        combo.textContent = result.name;
+        combo.classList.add('show');
+        // Mega para premios muy gordos, major para resto
+        if (win >= state.bet * 10) {
+          prize.classList.add('win-mega');
+          triggerBigWinFX();
+        } else if (win >= state.bet * 4) {
+          prize.classList.add('win-major');
+          triggerMajorWinFX();
+        } else {
+          prize.classList.add('win-minor');
+          triggerMinorWinFX();
+        }
+        $('msg-text').textContent = '';
+      } else if (netGain === 0) {
+        combo.textContent = result.name;
+        combo.classList.add('show');
+        prize.classList.add('return-partial');
+        prize.textContent = '+' + fmt(win);
+        $('msg-text').textContent = 'Devolución exacta';
+        playNoComboSound();
+      } else {
+        combo.textContent = result.name;
+        combo.classList.add('show');
+        prize.classList.add('return-partial');
+        prize.textContent = '+' + fmt(win);
+        $('msg-text').textContent = `Devolución parcial (apostó ${fmt(state.bet)})`;
+        playNoComboSound();
+      }
+
+      // Última ronda en topbar
+      const lw = $('last-win');
+      if (netGain > 0) { lw.textContent = '+' + fmt(netGain); lw.style.color = 'var(--green-win)'; lw.classList.add('flash'); setTimeout(() => lw.classList.remove('flash'), 600); }
+      else if (netGain === 0) { lw.textContent = '±0,00 ⚜'; lw.style.color = '#a89878'; }
+      else { lw.textContent = fmt(netGain); lw.style.color = '#a89878'; }
+    } else {
+      const lw = $('last-win');
+      lw.textContent = '−' + fmt(state.bet);
+      lw.style.color = '#8a3030';
+      $('combo-name').classList.remove('show');
+      $('msg-text').textContent = 'La fortuna mira hacia otro lado…';
+      $('msg-prize').style.display = 'none';
+      playNoComboSound();
+    }
+
+    state.rollCount = 0;
+    state.held = [false,false,false,false,false];
+    state.multHeld = false;
+    updateRollsUI();
+    renderAll();
+    updateBetUI();
+
+    // Bancarrota: ofrece tienda
+    if (state.balance < state.minBet) {
+      setTimeout(() => {
+        showToast('Sin saldo suficiente — visite la tienda');
+        if (!state.autoPlaying) openModal('shop-modal');
+      }, 1500);
+    }
+  }
+
+  function endRound() {
+    if (!state.inRound) return;
+    state.rollCount = state.maxRolls;
+    updateRollsUI();
+    finalizeRound();
+  }
+
+  // ============ AUTO-JUEGO ============
+  function decideHolds() {
+    const counts = {};
+    state.dice.forEach(d => counts[d] = (counts[d]||0)+1);
+    let bestVal = 0, bestCount = 0;
+    for (const v in counts) if (counts[v] > bestCount) { bestCount = counts[v]; bestVal = parseInt(v); }
+    if (bestCount >= 2) {
+      for (let i=0; i<5; i++) state.held[i] = (state.dice[i] === bestVal);
+    } else {
+      const unique = [...new Set(state.dice)].sort((a,b)=>a-b);
+      const kept = new Set();
+      let bestRun = [], cur = [];
+      for (let i=0; i<unique.length; i++) {
+        if (cur.length === 0 || unique[i] === cur[cur.length-1] + 1) cur.push(unique[i]);
+        else cur = [unique[i]];
+        if (cur.length > bestRun.length) bestRun = [...cur];
+      }
+      if (bestRun.length >= 3) bestRun.forEach(v => kept.add(v));
+      for (let i=0; i<5; i++) state.held[i] = kept.has(state.dice[i]);
+    }
+    state.multHeld = (state.multiplier === 6) || (bestCount >= 4);
+    renderAll();
+  }
+
+  function updateAutoUI() {
+    const btn = $('auto-btn');
+    const counter = $('auto-counter');
+    if (state.autoPlaying) {
+      btn.textContent = 'Detener Auto';
+      btn.classList.add('auto-active');
+      const done = 20 - state.autoRemaining;
+      counter.textContent = `Ronda ${done + 1} de 20`;
+    } else {
+      btn.textContent = 'Auto · hasta 20';
+      btn.classList.remove('auto-active');
+      counter.textContent = '';
+    }
+  }
+
+  async function startAuto() {
+    if (state.inRound) return;
+    if (state.balance < state.bet) { showToast('Saldo insuficiente'); return; }
+    state.autoPlaying = true;
+    state.autoRemaining = 20;
+    state.autoStop = false;
+    updateAutoUI();
+    updateBetUI();
+
+    while (state.autoRemaining > 0 && !state.autoStop) {
+      if (state.balance < state.bet) { showToast('Saldo insuficiente — Auto detenido'); break; }
+      await rollDice();
+      if (state.autoStop) break;
+      await sleep(550);
+      if (!state.autoStop) {
+        decideHolds();
+        await sleep(450);
+        await rollDice();
+        await sleep(900);
+      }
+      state.autoRemaining--;
+      updateAutoUI();
+    }
+    state.autoPlaying = false;
+    state.autoStop = false;
+    state.autoRemaining = 0;
+    updateAutoUI();
+    updateBetUI();
+  }
+
+  function toggleAuto() {
+    if (state.autoPlaying) { state.autoStop = true; showToast('Detendrá tras esta ronda…'); }
+    else startAuto();
+  }
+
+  // ============ EFECTOS DE GANANCIA ============
+  function showToast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2400);
+  }
+
+  function spawnConfetti(count = 60) {
+    const layer = $('fx-layer');
+    const colors = ['#f5cf6b', '#d4a14a', '#8a6420', '#fff5d8', '#c4485a'];
+    for (let i = 0; i < count; i++) {
+      const c = document.createElement('div');
+      c.className = 'confetti';
+      c.style.left = Math.random() * 100 + 'vw';
+      c.style.background = colors[Math.floor(Math.random() * colors.length)];
+      c.style.animationDuration = (2 + Math.random() * 2) + 's';
+      c.style.animationDelay = Math.random() * 0.5 + 's';
+      c.style.transform = `rotate(${Math.random() * 360}deg)`;
+      if (Math.random() > 0.5) c.style.borderRadius = '50%';
+      layer.appendChild(c);
+      setTimeout(() => c.remove(), 5000);
+    }
+  }
+
+  function spawnCoins(count = 25) {
+    const layer = $('fx-layer');
+    for (let i = 0; i < count; i++) {
+      const c = document.createElement('div');
+      c.className = 'coin';
+      c.style.left = (Math.random() * 80 + 10) + 'vw';
+      c.style.animationDuration = (2.2 + Math.random() * 1.5) + 's';
+      c.style.animationDelay = Math.random() * 0.8 + 's';
+      const size = 24 + Math.random() * 16;
+      c.style.width = size + 'px';
+      c.style.height = size + 'px';
+      c.style.fontSize = (size * 0.5) + 'px';
+      layer.appendChild(c);
+      setTimeout(() => c.remove(), 5000);
+    }
+  }
+
+  function spawnParticles(count = 30) {
+    const layer = $('fx-layer');
+    // Posicionar el contenedor de particulas en el centro del premio
+    const prizeRect = $('msg-prize').getBoundingClientRect();
+    const cx = prizeRect.left + prizeRect.width / 2;
+    const cy = prizeRect.top + prizeRect.height / 2;
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      p.style.left = cx + 'px';
+      p.style.top = cy + 'px';
+      p.style.position = 'fixed';
+      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3;
+      const dist = 100 + Math.random() * 200;
+      p.style.setProperty('--px', Math.cos(angle) * dist + 'px');
+      p.style.setProperty('--py', Math.sin(angle) * dist + 'px');
+      p.style.background = Math.random() > 0.5 ? 'var(--gold-bright)' : 'var(--gold)';
+      p.style.width = p.style.height = (5 + Math.random() * 8) + 'px';
+      layer.appendChild(p);
+      setTimeout(() => p.remove(), 1300);
+    }
+  }
+
+  function shakeScreen() {
+    const t = $('game-table');
+    t.classList.remove('shake');
+    void t.offsetWidth;
+    t.classList.add('shake');
+    setTimeout(() => t.classList.remove('shake'), 500);
+  }
+
+  function flashScreen() {
+    const f = $('flash-overlay');
+    f.classList.remove('flash-active');
+    void f.offsetWidth;
+    f.classList.add('flash-active');
+    setTimeout(() => f.classList.remove('flash-active'), 800);
+  }
+
+  // Niveles de efectos
+  function triggerMinorWinFX() {
+    spawnParticles(15);
+    playWinSound('minor');
+  }
+
+  function triggerMajorWinFX() {
+    spawnParticles(30);
+    spawnCoins(15);
+    flashScreen();
+    playWinSound('major');
+  }
+
+  function triggerBigWinFX() {
+    spawnParticles(50);
+    spawnCoins(35);
+    spawnConfetti(80);
+    flashScreen();
+    shakeScreen();
+    showToast('¡Premio extraordinario, monsieur!');
+    playWinSound('mega');
+  }
+
+  function triggerJackpotFX() {
+    // El máximo espectáculo
+    const banner = $('jackpot-banner');
+    banner.classList.remove('show');
+    void banner.offsetWidth;
+    banner.classList.add('show');
+
+    spawnParticles(80);
+    spawnCoins(60);
+    spawnConfetti(150);
+    flashScreen();
+    shakeScreen();
+
+    setTimeout(() => spawnConfetti(80), 600);
+    setTimeout(() => spawnCoins(40), 800);
+    setTimeout(() => flashScreen(), 1200);
+    setTimeout(() => spawnConfetti(60), 1400);
+
+    showToast('★ ¡JACKPOT LEGENDARIO! ★');
+    playWinSound('jackpot');
+  }
+
+  // ============ SISTEMA DE AUDIO ============
+  // Generamos todos los sonidos con Web Audio API (sin archivos externos)
+  let audioCtx = null;
+  let sfxGain = null;
+  let musicPlaying = false;
+  let audioEnabled = true;
+
+  function initAudio() {
+    if (audioCtx) return;
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      sfxGain = audioCtx.createGain();
+      sfxGain.gain.value = state.sfxVolume;
+      sfxGain.connect(audioCtx.destination);
+    } catch (e) { audioEnabled = false; }
+  }
+
+  // ---------- MÚSICA DE FONDO ----------
+  // Usamos un <audio> con la pista subida por el usuario, en bucle.
+  function startMusic() {
+    if (!audioEnabled) return;
+    const a = $('bg-music');
+    if (!a) return;
+    a.volume = state.musicVolume;
+    const promise = a.play();
+    if (promise && promise.then) {
+      promise.then(() => {
+        musicPlaying = true;
+      }).catch((err) => {
+        musicPlaying = false;
+        // Si es por falta de interacción, se reintentará en el próximo gesto
+        // Si es otra cosa, avisar al usuario
+        if (err.name !== 'NotAllowedError') {
+          showToast('No se pudo reproducir la música');
+        }
+      });
+    }
+  }
+
+  function stopMusic() {
+    const a = $('bg-music');
+    if (a) { a.pause(); a.currentTime = 0; }
+    musicPlaying = false;
+  }
+
+  function setMusicVolume(v) {
+    state.musicVolume = v;
+    const a = $('bg-music');
+    if (a) a.volume = audioEnabled ? v : 0;
+  }
+
+  // ---------- SFX: DADOS LANZÁNDOSE (continuo durante la animación) ----------
+  // Genera clicks de plástico de forma rítmica e impredecible mientras los dados
+  // están en el aire/rebotando, terminando con un golpe grave al aterrizar.
+  let _diceRollClickInterval = null;
+
+  function startDiceRollSound() {
+    if (!audioCtx || !audioEnabled) return;
+    stopDiceRollSound();
+
+    const spawnClick = () => {
+      const t = audioCtx.currentTime;
+      // 1-3 clicks por tick, con timing y tono variados
+      const clicks = 1 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < clicks; i++) {
+        const ct = t + Math.random() * 0.05;
+        const noise = audioCtx.createBufferSource();
+        const buffer = audioCtx.createBuffer(1, 1500, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let s = 0; s < 1500; s++) data[s] = (Math.random() * 2 - 1) * Math.exp(-s / 80);
+        noise.buffer = buffer;
+        const g = audioCtx.createGain();
+        g.gain.value = 0.15 + Math.random() * 0.18;
+        const bp = audioCtx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = 1200 + Math.random() * 2800;
+        bp.Q.value = 4 + Math.random() * 3;
+        noise.connect(bp); bp.connect(g); g.connect(sfxGain);
+        noise.start(ct);
+      }
+    };
+
+    // Rumor grave de fondo continuo (los dados rodando sobre el fieltro)
+    const rumbleNoise = audioCtx.createBufferSource();
+    const rumbleBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 1.5, audioCtx.sampleRate);
+    const rumbleData = rumbleBuffer.getChannelData(0);
+    for (let s = 0; s < rumbleData.length; s++) rumbleData[s] = Math.random() * 2 - 1;
+    rumbleNoise.buffer = rumbleBuffer;
+    rumbleNoise.loop = true;
+    const rumbleGain = audioCtx.createGain();
+    rumbleGain.gain.value = 0.08;
+    const rumbleLP = audioCtx.createBiquadFilter();
+    rumbleLP.type = 'lowpass';
+    rumbleLP.frequency.value = 200;
+    rumbleNoise.connect(rumbleLP); rumbleLP.connect(rumbleGain); rumbleGain.connect(sfxGain);
+    rumbleNoise.start();
+    _diceRollClickInterval = {
+      clickTimer: setInterval(spawnClick, 50 + Math.random() * 30),
+      rumble: rumbleNoise,
+      rumbleGain: rumbleGain
+    };
+    // Rampa de entrada del rumble
+    rumbleGain.gain.setValueAtTime(0, audioCtx.currentTime);
+    rumbleGain.gain.linearRampToValueAtTime(0.12, audioCtx.currentTime + 0.1);
+  }
+
+  function stopDiceRollSound() {
+    if (!_diceRollClickInterval) return;
+    clearInterval(_diceRollClickInterval.clickTimer);
+    if (_diceRollClickInterval.rumble && audioCtx) {
+      const r = _diceRollClickInterval.rumbleGain;
+      r.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
+      try { _diceRollClickInterval.rumble.stop(audioCtx.currentTime + 0.15); } catch(e) {}
+    }
+    _diceRollClickInterval = null;
+  }
+
+  function playDiceLandSound() {
+    if (!audioCtx || !audioEnabled) return;
+    const thumpT = audioCtx.currentTime;
+    // 4-6 golpes graves rápidos (los dados rebotando y asentándose)
+    for (let i = 0; i < 5; i++) {
+      const tt = thumpT + i * 0.05 + Math.random() * 0.04;
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(70 + Math.random() * 50, tt);
+      osc.frequency.exponentialRampToValueAtTime(35, tt + 0.18);
+      const vol = 0.5 - i * 0.07;
+      g.gain.setValueAtTime(Math.max(0.1, vol), tt);
+      g.gain.exponentialRampToValueAtTime(0.001, tt + 0.22);
+      osc.connect(g); g.connect(sfxGain);
+      osc.start(tt); osc.stop(tt + 0.28);
+    }
+    // Y unos clicks finales más rápidos
+    for (let i = 0; i < 4; i++) {
+      const ct = thumpT + i * 0.04 + Math.random() * 0.02;
+      const noise = audioCtx.createBufferSource();
+      const buffer = audioCtx.createBuffer(1, 1200, audioCtx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let s = 0; s < 1200; s++) data[s] = (Math.random() * 2 - 1) * Math.exp(-s / 70);
+      noise.buffer = buffer;
+      const g = audioCtx.createGain();
+      g.gain.value = 0.2;
+      const bp = audioCtx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 1800 + Math.random() * 2000;
+      bp.Q.value = 4;
+      noise.connect(bp); bp.connect(g); g.connect(sfxGain);
+      noise.start(ct);
+    }
+  }
+
+  // Compatibilidad: la antigua función playDiceRoll() ahora arranca el bucle
+  function playDiceRoll() {
+    startDiceRollSound();
+  }
+
+  // ---------- SFX: HOLD (al fijar un dado) ----------
+  function playHoldClick() {
+    if (!audioCtx || !audioEnabled) return;
+    const t = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, t);
+    osc.frequency.exponentialRampToValueAtTime(1320, t + 0.08);
+    g.gain.setValueAtTime(0.2, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+    osc.connect(g); g.connect(sfxGain);
+    osc.start(t); osc.stop(t + 0.2);
+  }
+
+  // ---------- SFX: GANAR (escala mágica adictiva) ----------
+  // Pequeña fanfarria ascendente. Más notas y más altas según la importancia.
+  function playWinSound(level = 'minor') {
+    if (!audioCtx || !audioEnabled) return;
+    const t = audioCtx.currentTime;
+
+    // Escalas según nivel (Do mayor con quintas y séptimas para sonar "premium")
+    const scales = {
+      minor: [523.25, 659.25, 783.99],                              // C E G
+      major: [523.25, 659.25, 783.99, 1046.50, 1318.51],            // C E G C5 E5
+      mega:  [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98, 2093.00],  // C E G C5 E5 G5 C6
+      jackpot: [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98, 2093.00, 2637.02, 3135.96]  // hasta E6 G6
+    };
+    const notes = scales[level] || scales.minor;
+
+    notes.forEach((freq, i) => {
+      const nt = t + i * 0.08;
+      // "Campana": sine + triangle 2ª armónica
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      osc1.type = 'sine';
+      osc2.type = 'triangle';
+      osc1.frequency.value = freq;
+      osc2.frequency.value = freq * 2;
+      g.gain.setValueAtTime(0, nt);
+      g.gain.linearRampToValueAtTime(0.4, nt + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, nt + 0.6);
+      osc1.connect(g);
+      const gOsc2 = audioCtx.createGain();
+      gOsc2.gain.value = 0.3;
+      osc2.connect(gOsc2); gOsc2.connect(g);
+      g.connect(sfxGain);
+      osc1.start(nt); osc1.stop(nt + 0.7);
+      osc2.start(nt); osc2.stop(nt + 0.7);
+    });
+
+    // Acorde final reforzado para mega y jackpot
+    if (level === 'mega' || level === 'jackpot') {
+      const finalT = t + notes.length * 0.08 + 0.1;
+      [523.25, 659.25, 783.99, 1046.50].forEach(freq => {
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = 'triangle';
+        o.frequency.value = freq;
+        g.gain.setValueAtTime(0, finalT);
+        g.gain.linearRampToValueAtTime(0.15, finalT + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.001, finalT + 1.2);
+        o.connect(g); g.connect(sfxGain);
+        o.start(finalT); o.stop(finalT + 1.3);
+      });
+    }
+
+    // Tintineo de monedas en mega/jackpot
+    if (level === 'mega' || level === 'jackpot') {
+      const coinCount = level === 'jackpot' ? 30 : 15;
+      for (let i = 0; i < coinCount; i++) {
+        const ct = t + 0.3 + Math.random() * 1.5;
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = 'sine';
+        o.frequency.value = 2500 + Math.random() * 2000;
+        g.gain.setValueAtTime(0.15, ct);
+        g.gain.exponentialRampToValueAtTime(0.001, ct + 0.15);
+        o.connect(g); g.connect(sfxGain);
+        o.start(ct); o.stop(ct + 0.2);
+      }
+    }
+  }
+
+  // ---------- SFX: SIN COMBINACIÓN ----------
+  // Tintineo neutro y suave — reconoce el resultado sin sonar a "perdiste"
+  function playNoComboSound() {
+    if (!audioCtx || !audioEnabled) return;
+    const t = audioCtx.currentTime;
+    // Solo un "click" sutil. Sin notas tristes, no penalizamos al jugador.
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 440;
+    g.gain.setValueAtTime(0.08, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+    osc.connect(g); g.connect(sfxGain);
+    osc.start(t); osc.stop(t + 0.2);
+  }
+
+  // ---------- SFX: COMPRA ----------
+  function playPurchaseSound() {
+    if (!audioCtx || !audioEnabled) return;
+    const t = audioCtx.currentTime;
+    [659.25, 783.99, 1046.50].forEach((freq, i) => {
+      const nt = t + i * 0.08;
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = 'triangle';
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0, nt);
+      g.gain.linearRampToValueAtTime(0.3, nt + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, nt + 0.4);
+      o.connect(g); g.connect(sfxGain);
+      o.start(nt); o.stop(nt + 0.5);
+    });
+  }
+
+  // ---------- SFX: BOTÓN ----------
+  function playButtonClick() {
+    if (!audioCtx || !audioEnabled) return;
+    const t = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(660, t);
+    g.gain.setValueAtTime(0.12, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+    osc.connect(g); g.connect(sfxGain);
+    osc.start(t); osc.stop(t + 0.1);
+  }
+
+  // ---------- AUDIO: abrir/cerrar panel y mute ----------
+  function toggleAudioPanel() {
+    $('audio-control').classList.toggle('open');
+  }
+
+  function applyAudioState() {
+    const btn = $('audio-toggle');
+    btn.classList.toggle('muted', !audioEnabled);
+    btn.textContent = audioEnabled ? '♪' : '♪̸';
+    const a = $('bg-music');
+    if (a) a.volume = audioEnabled ? state.musicVolume : 0;
+    if (sfxGain) sfxGain.gain.value = audioEnabled ? state.sfxVolume : 0;
+  }
+
+  function setMute(muted) {
+    audioEnabled = !muted;
+    const muteBtn = $('mute-btn');
+    if (muteBtn) {
+      muteBtn.classList.toggle('active', muted);
+      muteBtn.textContent = muted ? 'Sonido silenciado' : 'Silenciar todo';
+    }
+    applyAudioState();
+  }
+
+  // ============ INIT Y EVENTOS ============
+  // Pantalla de inicio
+  $('play-btn').addEventListener('click', () => {
+    // Iniciar audio en respuesta a interacción del usuario (requerido por navegadores)
+    initAudio();
+    if (!state.user) {
+      // Crear usuario invitado para empezar a jugar inmediatamente
+      createUser('Invitado');
+      showToast('Jugando como Invitado · cree cuenta en Mi Perfil');
+    }
+    showScreen('game-screen');
+    startMusic();
+  });
+  $('rules-btn').addEventListener('click', () => openModal('rules-modal'));
+  $('profile-btn').addEventListener('click', () => { refreshProfileModal(); openModal('profile-modal'); });
+  $('shop-btn').addEventListener('click', () => {
+    if (!state.user) { openModal('profile-modal'); showToast('Cree una cuenta primero'); return; }
+    openModal('shop-modal');
+  });
+  $('user-badge').addEventListener('click', () => { refreshProfileModal(); openModal('profile-modal'); });
+  $('game-user-badge').addEventListener('click', () => { refreshProfileModal(); openModal('profile-modal'); });
+
+  // Volver a inicio
+  $('back-home').addEventListener('click', () => {
+    if (state.autoPlaying) { showToast('Detenga el modo auto primero'); return; }
+    if (state.inRound) { showToast('Termine la ronda actual primero'); return; }
+    showScreen('home-screen');
+  });
+
+  // Registro
+  $('register-btn').addEventListener('click', () => {
+    const name = $('register-name').value.trim();
+    if (name.length < 2) { showToast('Indique un nombre válido'); return; }
+    createUser(name);
+    $('register-name').value = '';
+    refreshProfileModal();
+    showToast(`Bienvenido al salón, ${name}`);
+  });
+  $('register-name').addEventListener('keypress', e => { if (e.key === 'Enter') $('register-btn').click(); });
+
+  // Logout — sin confirm() porque está bloqueado en algunos navegadores móviles
+  $('logout-btn').addEventListener('click', () => {
+    // Mostramos el modal de confirmación
+    openModal('confirm-modal');
+  });
+
+  $('confirm-yes').addEventListener('click', () => {
+    closeModal('confirm-modal');
+    logout();
+    closeModal('profile-modal');
+    showScreen('home-screen');
+    showToast('Sesión cerrada');
+  });
+  $('confirm-no').addEventListener('click', () => closeModal('confirm-modal'));
+
+  // Cambiar usuario: muestra el formulario de registro dentro del modal
+  $('switch-user-btn').addEventListener('click', () => {
+    $('profile-view').style.display = 'none';
+    $('auth-view').style.display = 'block';
+    $('auth-title').textContent = 'Cambiar de usuario';
+    $('auth-subtitle').textContent = 'Introduzca un nombre nuevo. Los datos del usuario actual se conservarán solo durante esta sesión.';
+    $('register-name').focus();
+  });
+
+
+  // Tienda
+  document.querySelectorAll('.shop-pack').forEach(p => {
+    p.addEventListener('click', () => {
+      const amount = parseFloat(p.dataset.amount);
+      const price = p.dataset.price;
+      if (!state.user) return;
+      state.balance += amount;
+      refreshUserUI();
+      refreshProfileModal();
+      closeModal('shop-modal');
+      showToast(`+${amount.toLocaleString('es-ES')} ⚜ añadidos · cargo simulado de ${price.replace('.', ',')} €`);
+      spawnCoins(20);
+      playPurchaseSound();
+    });
+  });
+
+  // Juego
+  $('roll-btn').addEventListener('click', () => { if (!state.autoPlaying) rollDice(); });
+  $('end-btn').addEventListener('click', () => { if (!state.autoPlaying) endRound(); });
+  $('bet-down').addEventListener('click', () => adjustBet(-1));
+  $('bet-up').addEventListener('click', () => adjustBet(1));
+  $('auto-btn').addEventListener('click', toggleAuto);
+
+  // Manejador de error si el archivo de música no se carga
+  $('bg-music').addEventListener('error', () => {});
+
+  // Inicialización
+  buildHomeDice();
+  buildDice();
+  renderAll();
+  updateBetUI();
+  updateRollsUI();
+  refreshUserUI();
+  refreshProfileModal();
+
+  // Audio control: el botón abre/cierra el panel
+  $('audio-toggle').addEventListener('click', (e) => {
+    e.stopPropagation();
+    initAudio();
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    if (audioEnabled && !musicPlaying) startMusic();
+    toggleAudioPanel();
+  });
+
+  // Cerrar panel al hacer click fuera
+  document.addEventListener('click', (e) => {
+    const ctrl = $('audio-control');
+    if (ctrl.classList.contains('open') && !ctrl.contains(e.target)) {
+      ctrl.classList.remove('open');
+    }
+  });
+
+  // Sliders de volumen
+  function updateRangeFill(input) {
+    input.style.setProperty('--p', input.value + '%');
+  }
+
+  $('music-volume').addEventListener('input', (e) => {
+    const v = parseInt(e.target.value) / 100;
+    state.musicVolume = v;
+    $('music-volume-val').textContent = e.target.value;
+    updateRangeFill(e.target);
+    const a = $('bg-music');
+    if (a && audioEnabled) a.volume = v;
+    // Si pone volumen > 0 y estaba muteado, reactivar
+    if (v > 0 && !audioEnabled) setMute(false);
+  });
+
+  $('sfx-volume').addEventListener('input', (e) => {
+    const v = parseInt(e.target.value) / 100;
+    state.sfxVolume = v;
+    $('sfx-volume-val').textContent = e.target.value;
+    updateRangeFill(e.target);
+    if (sfxGain && audioEnabled) sfxGain.gain.value = v;
+    if (v > 0 && !audioEnabled) setMute(false);
+  });
+
+  $('mute-btn').addEventListener('click', () => {
+    setMute(audioEnabled);  // si está activo, mutear; si muteado, activar
+  });
+
+  // Inicializar visualización de los sliders
+  updateRangeFill($('music-volume'));
+  updateRangeFill($('sfx-volume'));
+
+  // Inicializar audio + arrancar música en la primera interacción del usuario
+  // (los navegadores requieren un gesto antes de reproducir audio)
+  let _firstInteraction = false;
+  function _onFirstInteraction() {
+    if (_firstInteraction) return;
+    _firstInteraction = true;
+    initAudio();
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    if (audioEnabled) {
+      // Retry varias veces por si el blob aún no estaba listo
+      let attempts = 0;
+      const tryStart = () => {
+        startMusic();
+        attempts++;
+        if (!musicPlaying && attempts < 5) {
+          setTimeout(tryStart, 300);
+        }
+      };
+      tryStart();
+    }
+  }
+  document.addEventListener('click', _onFirstInteraction);
+  document.addEventListener('keydown', _onFirstInteraction);
+  document.addEventListener('touchstart', _onFirstInteraction);
+
+  // ============ PWA: REGISTRAR SERVICE WORKER ============
+  // Esto hace que la app pueda funcionar offline y se pueda instalar.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js').catch(() => {});
+    });
+  }
+
+  // Detectar si el navegador puede ofrecer la instalación
+  let deferredInstallPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    // Evitar el banner automático: lo lanzaremos cuando el usuario quiera
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    // Mostrar un toast sutil con la oferta de instalar
+    setTimeout(() => {
+      if (deferredInstallPrompt && !window.matchMedia('(display-mode: standalone)').matches) {
+        showToast('Puedes instalar la app · pulsa el icono ⊕');
+        showInstallButton();
+      }
+    }, 3000);
+  });
+
+  function showInstallButton() {
+    let btn = document.getElementById('install-btn');
+    if (btn) return;
+    btn = document.createElement('button');
+    btn.id = 'install-btn';
+    btn.textContent = '⊕ Instalar app';
+    btn.style.cssText = `
+      position: fixed; top: 24px; left: 24px; z-index: 220;
+      padding: 10px 18px; border-radius: 50px;
+      border: 1px solid var(--gold-deep);
+      background: linear-gradient(180deg, rgba(74,14,14,0.85), rgba(26,8,8,0.85));
+      backdrop-filter: blur(6px);
+      color: var(--gold); font-family: 'Cinzel', serif;
+      font-size: 0.75rem; letter-spacing: 0.15em; cursor: pointer;
+      transition: all 0.2s;
+    `;
+    btn.addEventListener('click', async () => {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      const { outcome } = await deferredInstallPrompt.userChoice;
+      if (outcome === 'accepted') {
+        showToast('¡App instalada!');
+        btn.remove();
+      }
+      deferredInstallPrompt = null;
+    });
+    document.body.appendChild(btn);
+  }
+
+  // Si ya está instalada como app, ocultar cualquier promo
+  window.addEventListener('appinstalled', () => {
+    const btn = document.getElementById('install-btn');
+    if (btn) btn.remove();
+    deferredInstallPrompt = null;
+  });
+</script>
+
+</body>
+</html>
